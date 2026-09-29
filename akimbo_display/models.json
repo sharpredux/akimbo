@@ -1,0 +1,8 @@
+{
+  "ipad-mini-7": {"name": "iPad mini (A17 Pro / 7)", "native": [2266, 1488], "ppi": 326, "source": "https://support.apple.com/en-us/121456"},
+  "ipad-mini-6": {"name": "iPad mini (6th generation)", "native": [2266, 1488], "ppi": 326, "source": "https://support.apple.com/en-us/111886"},
+  "ipad-10": {"name": "iPad (10th generation)", "native": [2360, 1640], "ppi": 264, "source": "https://support.apple.com/en-us/111840"},
+  "ipad-air-5": {"name": "iPad Air (5th generation)", "native": [2360, 1640], "ppi": 264, "source": "https://support.apple.com/en-us/111887"},
+  "ipad-pro-11-m4": {"name": "iPad Pro 11-inch (M4)", "native": [2420, 1668], "ppi": 264, "source": "https://support.apple.com/en-us/119892"},
+  "ipad-pro-13-m4": {"name": "iPad Pro 13-inch (M4)", "native": [2752, 2064], "ppi": 264, "source": "https://support.apple.com/en-us/119891"}
+}

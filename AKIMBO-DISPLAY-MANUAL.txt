@@ -1,0 +1,566 @@
+AKIMBO DISPLAY - USER MANUAL
+For Fedora with an XFCE/X11 desktop
+Project: https://github.com/sharpredux/akimbo
+Updated: 29 September 2026
+
+CONTENTS
+  1. What Akimbo does and what it requires
+  2. Everyday use
+  3. First installation and updating the installed copy
+  4. Connecting over Wi-Fi or USB
+  5. Moving windows, maximizing, and taskbar placement
+  6. iPad models, resolution, and performance
+  7. Saving settings and changing sessions
+  8. Command reference
+  9. Troubleshooting
+ 10. Stopping, recovery, and removal
+ 11. Files, privacy, and implementation notes
+
+
+1. WHAT AKIMBO DOES AND WHAT IT REQUIRES
+
+Akimbo extends your Linux desktop onto an iPad. Safari displays the extra
+monitor, named AKIMBO-IPAD, through a local web server on the laptop.
+Move windows between the laptop and iPad using the laptop's mouse and keyboard.
+The Weylus backend also provides touch and stylus input support.
+
+The supported host is Fedora with an XFCE desktop running X11. Run commands
+as your normal user from a terminal inside that desktop session. Python 3.11
+or newer is required. The full installer installs the build dependencies
+and requests sudo for system setup.
+
+This version needs an unused display connector, such as the laptop's HDMI
+output. Akimbo uses it to activate a software display mode. No HDMI cable
+or dummy plug is needed on the tested laptop. This depends on graphics-driver
+support and is not guaranteed on every computer. If all display connectors
+are already in use, this implementation cannot add another monitor.
+
+Use either a shared local Wi-Fi network or a supported USB network connection.
+Initial installation needs internet access to download dependencies. Wi-Fi
+streaming itself does not need an internet connection. There is no built-in
+internet relay, remote-access service, or connection between different sites.
+
+Known limits:
+  - Wayland is not supported by this controller.
+  - Rotated, reflected, or scaled physical outputs are rejected.
+  - One Akimbo display session runs at a time.
+  - Audio streaming and Safari's on-screen keyboard are not supported.
+  - Actual iPad touch/Pencil behavior and USB operation still need device
+    testing; backend input initialization alone does not verify these.
+
+
+2. EVERYDAY USE
+
+After installation (see section 3), use the program as follows:
+
+  1. Connect the laptop and iPad to the same local Wi-Fi network.
+  2. Open a terminal on the laptop and run:
+
+       akimbo-display start
+       akimbo-display url --show-code
+
+  3. Open the printed Safari address on the iPad and enter the access code.
+  4. The viewer should select "Monitor: AKIMBO-IPAD" automatically.
+  5. Drag a window downward through the middle of the laptop's bottom edge
+     when using the default "below" placement.
+
+If Akimbo says it is already running, use the existing address or run:
+
+  akimbo-display restart
+
+Reload Safari after a restart. To finish your display session:
+
+  akimbo-display stop
+
+Closing Safari or the laptop terminal does not stop the display service.
+There is no automatic startup at login; start it when you need it.
+
+An example viewer address is:
+
+  http://192.168.1.13:1701
+
+That is an example, not a permanent address. Always use the address printed
+by "akimbo-display url" because the laptop's IP can change.
+
+
+3. FIRST INSTALLATION AND UPDATING THE INSTALLED COPY
+
+For a fresh installation, clone the project into your home directory:
+
+  git clone https://github.com/sharpredux/akimbo.git ~/akimbo
+  cd ~/akimbo
+  python3 akimbo-display install
+
+Enter your sudo password in the laptop terminal when requested. The installer
+adds Fedora dependencies, configures input access and local firewall rules,
+and builds Weylus with its video dependencies. The initial build can take
+a while. It uses one CPU worker and memory limits to reduce system load.
+
+After the full installation, log out and back in so group membership for
+touch input takes effect. Then run:
+
+  akimbo-display doctor
+
+To copy updated program files from this project into the installed location,
+without reinstalling system dependencies:
+
+  cd ~/akimbo
+  git pull --ff-only
+  python3 akimbo-display install --user-only
+
+If a display session is running, restart it afterward to load the updated
+program. The installed copy is separate from this source directory; edits
+to the source alone do not update the installed command.
+
+If you cloned into another directory, use that directory in place of
+~/akimbo. The --user-only option requires dependencies to be present
+already. It does not build a missing Weylus backend or set up touch access.
+
+
+4. CONNECTING OVER WI-FI OR USB
+
+Wi-Fi
+
+Put both devices on a local network that permits them to communicate.
+Guest networks or device-isolation settings may prevent this even when both
+devices show the same Wi-Fi name.
+
+To explicitly choose Wi-Fi for a session:
+
+  akimbo-display restart --transport wifi
+  akimbo-display url --show-code
+
+After changing networks, update the firewall rules for the new network:
+
+  akimbo-display setup-network
+  akimbo-display restart --transport wifi
+
+USB
+
+USB in this version means networking through the iPad's Personal Hotspot.
+The cable does not act as a direct video input. A cable that only charges
+the iPad is insufficient.
+
+The supported path requires an iPad with cellular Personal Hotspot support,
+a USB data cable, and a trusted connection. A Wi-Fi-only iPad does not provide
+this Personal Hotspot path; use Wi-Fi with the current implementation.
+
+To try the USB path:
+
+  1. Connect the iPad with a USB data cable.
+  2. Unlock it, accept "Trust This Computer", and enable Personal Hotspot.
+  3. Linux must expose an active ipheth network interface with a private IPv4
+     address before Akimbo can use it.
+  4. On the laptop, run:
+
+       akimbo-display setup-network
+       akimbo-display restart --transport usb
+       akimbo-display url --show-code
+
+  5. Open the newly printed laptop address in Safari.
+
+With --transport auto, Akimbo prefers an available USB link and otherwise
+chooses Wi-Fi. Selection happens when the session starts. It does not switch
+an existing session automatically when a cable is plugged in or removed.
+
+Localhost and the web address
+
+On the iPad, "localhost" refers to the iPad itself. Enter the laptop's printed
+IP address with port 1701 instead. The current program binds its web server
+to the selected network address, so localhost on the laptop is not its
+configured viewer address either. Use http:// as printed, not https://.
+
+
+5. MOVING WINDOWS, MAXIMIZING, AND TASKBAR PLACEMENT
+
+The default iPad mini 7 layout places a 1510 x 992 monitor below the laptop
+screen, centered horizontally. On a 1920-pixel-wide laptop screen, the iPad
+region is narrower. Cross the bottom edge near its middle; crossing at a far
+left or right corner may leave the cursor against the laptop's edge.
+
+To move a window onto the iPad:
+
+  1. If necessary, restore it from maximized size using its restore button.
+  2. Hold the window's title bar and drag downward into the iPad area.
+     For a browser, use a draggable title-bar area rather than a tab.
+  3. Release it on the iPad.
+  4. Use the maximize button to fill that monitor. Double-clicking the title
+     bar also works when XFCE's double-click action is set to maximize.
+
+Normal XFCE edge tiling remains available when enabled in your window-manager
+settings. Akimbo does not add a separate "maximize on every drop" behavior.
+
+An empty iPad desktop can look black until you move a window onto it.
+The desktop wallpaper is not guaranteed to be drawn in the virtual area.
+Safari toolbars can reduce the visible area and leave borders. Adding the
+page to the iPad Home Screen may provide a larger viewing area.
+
+Akimbo temporarily pins panels whose output selection is automatic to the
+laptop's eDP display. This keeps the taskbar and launcher above the laptop's
+bottom edge. Panels already assigned to a specific output are left alone.
+The prior automatic selections are restored when Akimbo stops, unless you
+changed the output selection yourself while it was running.
+
+The program also refreshes XFCE's window manager with a compatibility library
+so it recognizes the extra monitor for dragging, maximizing, and tiling.
+A brief desktop redraw at startup or shutdown is expected.
+
+
+6. IPAD MODELS, RESOLUTION, AND PERFORMANCE
+
+List the profiles built into the program:
+
+  akimbo-display models list
+
+Show one profile and its preset resolutions:
+
+  akimbo-display models show ipad-mini-7
+
+Available profile IDs:
+
+  ipad-mini-7       iPad mini (A17 Pro / 7)
+  ipad-mini-6       iPad mini (6th generation)
+  ipad-10           iPad (10th generation)
+  ipad-air-5        iPad Air (5th generation)
+  ipad-pro-11-m4    iPad Pro 11-inch (M4)
+  ipad-pro-13-m4    iPad Pro 13-inch (M4)
+  custom            Your own resolution
+
+Profiles are selected explicitly; Akimbo does not detect the model from the
+iPad. They set resolution and display dimensions, not device-specific drivers.
+
+iPad mini 7 landscape presets:
+
+  performance    1132 x 744     Lower pixel count; useful for reducing load
+  balanced       1510 x 992     Default starting point
+  native         2266 x 1488    More desktop space; smaller interface elements
+
+Portrait swaps width and height. Changing the iPad's physical orientation
+does not automatically change the Akimbo layout.
+
+Examples for the next session:
+
+  akimbo-display restart --quality performance --fps 30
+  akimbo-display restart --quality native
+  akimbo-display restart --orientation portrait --position right
+  akimbo-display restart --model ipad-mini-6 --resolution ''
+
+Supported frame-rate requests range from 1 to 60. The default is 30.
+A request for 60 FPS does not guarantee 60 FPS delivery. CPU encoding,
+network conditions, and the iPad viewer all affect responsiveness.
+
+The encoder choices are auto, software, and vaapi. Auto uses supported VAAPI
+H.264 encoding when detected and otherwise uses software encoding. During
+setup, the development laptop selected software encoding. Forcing vaapi fails if the
+required encode support is unavailable.
+
+Custom size example:
+
+  akimbo-display restart --model custom --resolution 1600x1050
+
+Both dimensions must be even numbers between 320 and 8192. The host's total
+desktop-size limit also applies. Orientation determines which dimension is
+horizontal: landscape puts the larger dimension first; portrait reverses it.
+
+A resolution override takes priority over a model's quality preset. Clear
+it before returning to preset sizes:
+
+  akimbo-display configure --model ipad-mini-7 --resolution ''
+  akimbo-display restart
+
+
+7. SAVING SETTINGS AND CHANGING SESSIONS
+
+Use configure to save defaults for future sessions:
+
+  akimbo-display configure --model ipad-mini-7 --resolution ''
+  akimbo-display configure --orientation landscape --position below
+  akimbo-display configure --quality balanced --fps 30
+  akimbo-display configure --transport auto --encoder auto
+  akimbo-display restart
+
+The configure command prints the saved configuration. Without options it
+re-saves and prints the current configuration. Changing configuration does
+not alter a session that is already running; restart to apply it.
+
+Options on start or restart override saved settings for that session only:
+
+  akimbo-display restart --position left
+
+An override is not saved and is not inherited by a later bare restart.
+For example, after that command, "akimbo-display restart" uses the saved
+position again. Use configure when you want a change to persist.
+
+The possible positions are below, above, left, and right. Placement is
+relative to the bounding rectangle of the active physical displays.
+
+Preview geometry without changing the display:
+
+  akimbo-display preview --position below
+
+Preview uses the current desktop geometry. For planning from the original
+layout, stop the existing Akimbo session before previewing.
+
+
+8. COMMAND REFERENCE
+
+  akimbo-display start [options]
+      Start a session using saved settings plus any supplied overrides.
+
+  akimbo-display restart [options]
+      Stop and restore the current session, then start a new one.
+
+  akimbo-display stop
+      Stop streaming and restore the desktop. Attempts repair if needed.
+
+  akimbo-display configure [options]
+      Save defaults for future sessions and print the configuration.
+
+  akimbo-display preview [options]
+      Print proposed display geometry without applying it.
+
+  akimbo-display status
+      Print service state and the saved session details as JSON.
+
+  akimbo-display url
+      Print the viewer address for a running session.
+
+  akimbo-display url --show-code
+      Also print the private access code. Keep it out of shared logs.
+
+  akimbo-display doctor
+      Check session, display, network, backend, permissions, and firewall.
+      This checks prerequisites; it is not a complete iPad acceptance test.
+
+  akimbo-display setup-network
+      Run privileged input/firewall setup for currently available supported
+      networks. Also ensures the Akimbo input group and udev rules exist.
+
+  akimbo-display repair
+      Restore a retained recovery snapshot. The service must be stopped.
+
+  akimbo-display models list
+  akimbo-display models show MODEL-ID
+      List model IDs, or show one model's details and preset sizes.
+
+  akimbo-display install
+  akimbo-display install --user-only
+      Full installation, or copy the user command and service only.
+
+  akimbo-display uninstall
+  akimbo-display uninstall --system
+      Remove the user command/service, optionally including system rules.
+
+Options accepted by start, restart, configure, and preview:
+
+  --model ID                Default: ipad-mini-7
+  --quality PRESET          performance | balanced | native; default balanced
+  --orientation VALUE       landscape | portrait; default landscape
+  --position VALUE          below | above | left | right; default below
+  --transport VALUE         auto | usb | wifi; default auto
+  --resolution WIDTHxHEIGHT Explicit even resolution; default no override
+  --fps NUMBER              1 through 60; default 30
+  --encoder VALUE           auto | software | vaapi; default auto
+
+These are the built-in defaults. Your saved configuration may differ.
+
+Help:
+
+  akimbo-display --help
+  akimbo-display start --help
+
+The _serve and _recover commands shown in help are internal service entry
+points. Use start, stop, and repair for normal operation.
+
+
+9. TROUBLESHOOTING
+
+"Command not found"
+  Open a new terminal after installation. You can also run the installed
+  command directly:
+
+    ~/.local/bin/akimbo-display status
+
+  If it is absent, repeat the installation from your project directory.
+
+"KeyboardInterrupt" during installation
+  This means the process received an interrupt, commonly from Ctrl+C.
+  That traceback alone does not identify a compiler failure. Completed
+  build files are retained. Check whether the managed build is still active:
+
+    systemctl --user status akimbo-build.service
+
+  If it is still building, let it finish before starting another build.
+  If it has stopped without completing installation, rerun the full install.
+  If it fails again, retain the actual compiler/error lines before the
+  traceback; those are more useful than a final interrupted-wait message.
+
+Safari cannot open the page
+  Check "akimbo-display status" and "akimbo-display url". Use the printed
+  laptop address, http://, and port 1701. Check that the chosen network is
+  reachable from the iPad. If the network changed, run setup-network and
+  restart. Then reload Safari with the newly printed address.
+
+"No usable usb link"
+  A detected or charging iPad is not enough. The laptop needs an active USB
+  network interface with an IPv4 address. Check the data cable, trust prompt,
+  Personal Hotspot availability, and the output of:
+
+    ip -brief address
+
+  Use "akimbo-display restart --transport wifi" if USB networking is not
+  available. A Wi-Fi-only iPad needs the Wi-Fi path in this implementation.
+
+"Touch permission missing"
+  Run the full install or setup-network, then log out and back in and run
+  doctor again. The current controller requires writable /dev/uinput even
+  if you intend to operate it only with the laptop mouse.
+
+"WARN: UNVERIFIED" for the firewall
+  The read-only firewall query was denied or timed out. This does not by
+  itself prove that the connection is blocked. Run setup-network to apply
+  the rules for the current supported network, then retry the connection.
+
+The iPad shows black, or only an empty desktop
+  Move a window into the iPad region. An empty virtual desktop may have no
+  wallpaper. If the window also fails to appear, reload Safari and confirm
+  that the viewer is using "Monitor: AKIMBO-IPAD". Restart Akimbo if needed.
+
+The pointer or a dragged window stops at the laptop's bottom edge
+  Cross near the middle of the edge because the default iPad monitor is
+  narrower. Restore a maximized window before dragging if necessary.
+  Restart Akimbo to apply the current compatibility fixes. If it persists,
+  collect these diagnostics:
+
+    akimbo-display status
+    xrandr --listmonitors
+    xprop -root _NET_DESKTOP_GEOMETRY
+    journalctl --user -u akimbo-display.service -n 60 --no-pager
+
+  With the tested 1920 x 1080 laptop and mini 7 balanced/below layout, the
+  combined geometry should be 1920 x 2072. Different layouts have different
+  values. Seeing both monitors in xrandr alone does not prove XFCE recognizes
+  the full desktop.
+
+The taskbar appears on the iPad
+  Restart Akimbo to apply automatic panel pinning. If a panel is explicitly
+  assigned to another output, Akimbo preserves that choice. In XFCE's Panel
+  Preferences, select the laptop display (eDP on the tested laptop) for that panel.
+  Then reload Safari if it still shows the old image.
+
+Lag, high CPU use, or very small text
+  Try "akimbo-display restart --quality performance --fps 30". If you saved
+  a custom resolution, clear that override first so the preset can apply.
+  A lower resolution also makes desktop controls larger in the fitted image.
+
+"No unused display connector is available"
+  The current method needs a spare output. An external monitor occupying
+  the laptop's only HDMI output prevents this method from using that output.
+  Stop Akimbo before changing physical display connections. Supporting both
+  at once would require another available output or a different display
+  backend, which this version does not configure.
+
+"Cannot bind ...:1701"
+  Another process may be using the port, or the selected address may no
+  longer be available. Inspect the listener:
+
+    ss -ltnp '( sport = :1701 )'
+
+  Stop a separately launched Weylus instance if it is yours and you no
+  longer need it. Do not terminate an unidentified process.
+
+"Recovery snapshot exists" or a session fails to start
+  Run stop, then repair. Read the service log if recovery fails. If physical
+  monitor connections changed, restore the original connections and retry
+  repair. Keep the snapshot until recovery has completed.
+
+
+10. STOPPING, RECOVERY, AND REMOVAL
+
+Move any windows you want to keep visible back onto the laptop, then run:
+
+  akimbo-display stop
+
+Akimbo removes its virtual monitor/mode, restores display positions and size,
+restores managed panel selections and compositor preferences, and starts the
+normal XFCE window manager. Shadows or transparency may look different while
+streaming because compositing is temporarily disabled.
+
+After an interrupted session, use:
+
+  akimbo-display stop
+  akimbo-display repair
+
+Repair uses saved recovery information; it is not a general XFCE reset.
+If there is no snapshot, it reports that there is nothing to recover.
+After a reboot, it avoids applying obsolete physical monitor positions.
+
+To remove the user command and service:
+
+  akimbo-display uninstall
+
+To also remove Akimbo's input rules, boot-time input-module configuration,
+owned firewall rules, and the user's Akimbo input-group membership:
+
+  akimbo-display uninstall --system
+
+Removal retains installed Fedora packages, program/build data, configuration,
+and shell backups. It does not delete this project directory.
+
+
+11. FILES, PRIVACY, AND IMPLEMENTATION NOTES
+
+Default locations (the ~ character means your home directory):
+
+  ~/akimbo/
+      Project source and this manual.
+
+  ~/.local/bin/akimbo-display
+      Installed command, linking to the installed application.
+
+  ~/.local/share/akimbo-display/app/
+      Installed copy of the controller and scripts.
+
+  ~/.local/share/akimbo-display/bin/
+      Weylus and the XFCE compatibility library.
+
+  ~/.local/share/akimbo-display/build/
+      Downloaded sources, dependencies, and reusable build files.
+
+  ~/.config/akimbo-display/config.toml
+      Saved settings.
+
+  ~/.config/akimbo-display/access-code
+      Private viewer access code. This manual does not contain the code.
+
+  ~/.config/akimbo-display/recovery.json
+      Recovery information retained while a session needs restoration.
+
+  /run/user/<uid>/akimbo-display/
+      Runtime state, viewer script, and private backend configuration.
+
+  ~/.config/systemd/user/akimbo-display.service
+      The user service definition.
+
+Replace <uid> with your numeric user ID, shown by the command "id -u".
+Custom XDG directory settings can change these paths.
+
+The server uses HTTP and WebSocket on TCP 1701, bound to the selected laptop
+network address. The access code controls access but does not encrypt the
+desktop stream or the code in transit. Use a trusted local network or the
+supported USB network. The program does not configure router port forwarding.
+
+The input-access group permits synthetic input on the host. Only add trusted
+users to it. The compatibility library is loaded into Akimbo's replacement
+XFCE window-manager process; it does not install a global library override.
+
+Useful diagnostic commands that do not start a display session:
+
+  akimbo-display status
+  akimbo-display doctor
+  systemctl --user status akimbo-display.service
+  journalctl --user -u akimbo-display.service -n 60 --no-pager
+
+When sharing diagnostics, omit the access code and private backend config.
+
+END OF MANUAL

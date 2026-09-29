@@ -1,0 +1,26 @@
+__pycache__/
+*.py[cod]
+.venv/
+
+# Generated dependencies and native build artifacts
+build/
+dist/
+target/
+node_modules/
+*.o
+*.a
+*.so
+*.so.*
+
+# Private local configuration, session state, and logs
+.env
+.env.*
+!.env.example
+access-code
+recovery.json
+state.json
+request.json
+weylus.toml
+*.log
+*.pem
+*.key
