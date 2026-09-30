@@ -198,8 +198,12 @@ page to the iPad Home Screen may provide a larger viewing area.
 Akimbo temporarily pins panels whose output selection is automatic to the
 laptop's eDP display. This keeps the taskbar and launcher above the laptop's
 bottom edge. Panels already assigned to a specific output are left alone.
-The prior automatic selections are restored when Akimbo stops, unless you
-changed the output selection yourself while it was running.
+While Akimbo is running, panels use always-hide with no hide animation. This
+prevents a panel from sliding into a display below the laptop and keeps a
+fullscreen video unobstructed when another monitor receives focus or input.
+The prior panel selections, hide modes, and animation speeds are restored when
+Akimbo stops, unless you changed a managed setting yourself while it was
+running.
 
 The program also refreshes XFCE's window manager with a compatibility library
 so it recognizes the extra monitor for dragging, maximizing, and tiling.

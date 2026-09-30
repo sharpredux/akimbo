@@ -32,7 +32,7 @@ class LifecycleTests(unittest.TestCase):
              patch.object(cli, 'layout_snapshot', return_value=original), \
              patch.object(cli, 'xrandr', return_value=LAYOUT), \
              patch.object(cli, 'build_xfce_shim', return_value=Path('/tmp/test-shim.so')), \
-             patch.object(cli, 'panel_outputs', return_value={}), \
+             patch.object(cli, 'panel_settings', return_value={}), \
              patch.object(cli, 'apply_layout', side_effect=cli.Error('monitor failed')), \
              patch.object(cli, 'restore') as restore:
             with self.assertRaisesRegex(cli.Error, 'monitor failed'): cli.serve()
@@ -48,7 +48,7 @@ class LifecycleTests(unittest.TestCase):
              patch.object(cli, 'layout_snapshot', return_value=cli.parse_layout(LAYOUT)), \
              patch.object(cli, 'xrandr', return_value=LAYOUT), \
              patch.object(cli, 'build_xfce_shim', return_value=Path('/tmp/test-shim.so')), \
-             patch.object(cli, 'panel_outputs', return_value={}), \
+             patch.object(cli, 'panel_settings', return_value={}), \
              patch.object(cli, 'apply_layout', side_effect=cli.Error('monitor failed')), \
              patch.object(cli, 'restore', side_effect=cli.Error('hotplug')):
             with self.assertRaisesRegex(cli.Error, 'hotplug'): cli.serve()
@@ -72,6 +72,57 @@ class LifecycleTests(unittest.TestCase):
         cli.save_config(cli.DEFAULTS)
         self.assertEqual((self.cfgdir / 'config.toml').stat().st_mode & 0o777, 0o600)
         self.assertEqual(cli.config(), cli.DEFAULTS)
+
+    def test_panel_session_changes_are_reversible(self):
+        values = {
+            '/panels/panel-1/output-name': None,
+            '/panels/panel-1/autohide-behavior': None,
+            '/panels/panel-2/output-name': 'Automatic',
+            '/panels/panel-2/autohide-behavior': 1,
+            '/panels/panel-2/popdown-speed': 25,
+        }
+        with patch.object(cli, 'panel_numbers', return_value=['1', '2']), \
+             patch.object(cli, 'panel_value', side_effect=lambda prop, _type: values.get(prop)):
+            settings = cli.panel_settings('eDP')
+
+        self.assertEqual(settings['/panels/panel-1/output-name']['session'], 'eDP')
+        self.assertEqual(settings['/panels/panel-1/autohide-behavior']['session'], 2)
+        self.assertEqual(settings['/panels/panel-1/popdown-speed']['session'], 0)
+        self.assertEqual(settings['/panels/panel-2/output-name']['session'], 'eDP')
+        self.assertEqual(settings['/panels/panel-2/autohide-behavior']['session'], 2)
+        self.assertEqual(settings['/panels/panel-2/popdown-speed']['session'], 0)
+
+        state = {'panel_settings': settings}
+        with patch.object(cli, 'set_panel_value') as set_value:
+            cli.prepare_panels(state)
+        self.assertEqual(set_value.call_count, 3)
+        set_value.assert_any_call('/panels/panel-1/output-name', 'eDP', 'string', True)
+        set_value.assert_any_call('/panels/panel-2/autohide-behavior', 0, 'int')
+
+        with patch.object(cli, 'set_panel_value') as set_value:
+            cli.hide_panels(state)
+        self.assertEqual(set_value.call_count, 4)
+        set_value.assert_any_call('/panels/panel-1/autohide-behavior', 2, 'int', True)
+        set_value.assert_any_call('/panels/panel-2/popdown-speed', 0, 'int', False)
+        set_value.assert_any_call('/panels/panel-2/autohide-behavior', 2, 'int', False)
+
+        session_values = {prop: setting['session'] for prop, setting in settings.items()}
+        with patch.object(cli, 'panel_value', side_effect=lambda prop, _type: session_values[prop]), \
+             patch.object(cli, 'set_panel_value') as set_value, patch.object(cli, 'run') as run:
+            cli.restore_panels(state)
+        run.assert_any_call(['xfconf-query', '-c', 'xfce4-panel', '-p', '/panels/panel-1/output-name', '-r'])
+        set_value.assert_any_call('/panels/panel-2/autohide-behavior', 1, 'int')
+        set_value.assert_any_call('/panels/panel-2/popdown-speed', 25, 'int')
+
+    def test_panel_restore_preserves_live_user_change(self):
+        state = {'panel_settings': {
+            '/panels/panel-2/autohide-behavior': {'type': 'int', 'original': 1, 'session': 2},
+        }}
+        with patch.object(cli, 'panel_value', return_value=0), \
+             patch.object(cli, 'set_panel_value') as set_value, patch.object(cli, 'run') as run:
+            cli.restore_panels(state)
+        set_value.assert_not_called()
+        run.assert_not_called()
 
     def test_reboot_recovers_compositor_without_old_display_auth(self):
         state = {'boot_id': 'previous-boot', 'original': {'compositing': 'true'}}

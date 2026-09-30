@@ -217,34 +217,94 @@ def layout_snapshot():
     return layout
 
 
-def panel_outputs():
+def panel_numbers():
     result = run(["xfconf-query", "-c", "xfce4-panel", "-p", "/panels"], check=False)
     if result.returncode:
-        return {}
-    outputs = {}
-    for number in re.findall(r"\d+", result.stdout):
-        prop = f"/panels/panel-{number}/output-name"
-        value = run(["xfconf-query", "-c", "xfce4-panel", "-p", prop], check=False)
-        outputs[prop] = value.stdout.strip() if value.returncode == 0 else None
-    return outputs
+        return []
+    return re.findall(r"(?m)^\s*(\d+)\s*$", result.stdout)
 
 
-def pin_panels(state):
-    target = state["panel_target"]
-    for prop, previous in state["panel_outputs"].items():
-        if previous is None:
-            run(["xfconf-query", "-c", "xfce4-panel", "-p", prop, "-n", "-t", "string", "-s", target])
-        elif previous == "Automatic":
-            run(["xfconf-query", "-c", "xfce4-panel", "-p", prop, "-s", target])
+def panel_value(prop, value_type):
+    result = run(["xfconf-query", "-c", "xfce4-panel", "-p", prop], check=False)
+    if result.returncode:
+        return None
+    value = result.stdout.strip()
+    try:
+        return int(value) if value_type == "int" else value
+    except ValueError:
+        return None
+
+
+def panel_settings(target):
+    """Return only the reversible XFCE panel changes needed by a session."""
+    settings = {}
+    for number in panel_numbers():
+        base = f"/panels/panel-{number}"
+        output_prop = base + "/output-name"
+        output = panel_value(output_prop, "string")
+        if output in (None, "Automatic"):
+            settings[output_prop] = dict(type="string", original=output, session=target)
+
+        # XFCE's animated hide uses the full X11 framebuffer edge. When the
+        # iPad is below the laptop, that animation moves the panel through the
+        # iPad instead of just beyond the laptop edge.
+        speed_prop = base + "/popdown-speed"
+        speed = panel_value(speed_prop, "int")
+        if speed != 0:
+            settings[speed_prop] = dict(type="int", original=speed, session=0)
+
+        # XFCE raises an always-visible panel when fullscreen video loses focus
+        # to the other monitor. Intelligent hiding has the same problem because
+        # it follows only the focused window. Always-hide avoids both cases.
+        behavior_prop = base + "/autohide-behavior"
+        behavior = panel_value(behavior_prop, "int")
+        settings[behavior_prop] = dict(type="int", original=behavior, temporary=0, session=2)
+    return settings
+
+
+def set_panel_value(prop, value, value_type, create=False):
+    args = ["xfconf-query", "-c", "xfce4-panel", "-p", prop]
+    if create:
+        args += ["-n", "-t", value_type]
+    run([*args, "-s", str(value)])
+
+
+def prepare_panels(state):
+    """Pin panels and make hidden panels visible before XFWM is replaced."""
+    for prop, setting in state.get("panel_settings", {}).items():
+        if prop.endswith("/output-name"):
+            set_panel_value(prop, setting["session"], setting["type"], setting["original"] is None)
+        elif prop.endswith("/autohide-behavior") and setting["original"] not in (None, 0):
+            set_panel_value(prop, setting["temporary"], setting["type"])
+
+
+def hide_panels(state):
+    """Hide panels after replacement XFWM has adopted their visible windows."""
+    for prop, setting in state.get("panel_settings", {}).items():
+        if prop.endswith(("/popdown-speed", "/autohide-behavior")):
+            set_panel_value(prop, setting["session"], setting["type"], setting["original"] is None)
 
 
 def restore_panels(state):
+    for prop, setting in state.get("panel_settings", {}).items():
+        current = panel_value(prop, setting["type"])
+        # Respect a change made by the user while the iPad was running.
+        expected = (setting["session"],)
+        if state.get("phase") == "starting" and "temporary" in setting:
+            expected += (setting["temporary"],)
+        if current not in expected:
+            continue
+        if setting["original"] is None:
+            run(["xfconf-query", "-c", "xfce4-panel", "-p", prop, "-r"])
+        else:
+            set_panel_value(prop, setting["original"], setting["type"])
+
+    # Recovery snapshots written by releases before panel_settings existed.
     target = state.get("panel_target")
     for prop, previous in state.get("panel_outputs", {}).items():
         if previous not in (None, "Automatic"):
             continue
         current = run(["xfconf-query", "-c", "xfce4-panel", "-p", prop], check=False)
-        # Respect a change made by the user while the iPad was running.
         if current.returncode or current.stdout.strip() != target:
             continue
         args = ["xfconf-query", "-c", "xfce4-panel", "-p", prop]
@@ -510,7 +570,7 @@ def serve():
         selected_encoder = encoder(cfg)
         state = dict(original=original, geometry=plan, virtual_output=virtual_output, config=cfg, network=net,
                      encoder=selected_encoder, environment=request["environment"], phase="starting", boot_id=boot_id(),
-                     panel_outputs=panel_outputs(), panel_target=panel_target, wm_shim_started=False)
+                     panel_settings=panel_settings(panel_target), panel_target=panel_target, wm_shim_started=False)
         save_state(state)
         process = None
         stopping = False
@@ -520,11 +580,16 @@ def serve():
         signal.signal(signal.SIGTERM, stop_signal)
         signal.signal(signal.SIGINT, stop_signal)
         try:
+            # Pin panels before the framebuffer changes. Existing hidden panels
+            # are shown so replacement XFWM adopts them at their real position.
+            prepare_panels(state)
             apply_layout(plan, cfg, virtual_output)
-            pin_panels(state)
             state["wm_shim_started"] = True
             save_state(state)
             replace_xfwm(state, shim)
+            # Hide only after replacement XFWM is in control. Otherwise it can
+            # relocate XFCE's far-offscreen hidden windows to the top-left.
+            hide_panels(state)
             wait_desktop_geometry(plan)
             atomic(RUNTIME / "viewer.js", viewer_script(cfg))
             # Avoid placing the access code in argv, the URL, or the journal.
