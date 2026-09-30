@@ -57,9 +57,9 @@ After installation (see section 3), use the program as follows:
   2. Open a terminal on the laptop and run:
 
        akimbo-display start
-       akimbo-display url --show-code
 
-  3. Open the printed Safari address on the iPad and enter the access code.
+  3. Open the printed Safari address on the iPad and enter the printed access
+     code.
   4. The viewer should select "Monitor: AKIMBO-IPAD" automatically.
   5. Drag a window downward through the middle of the laptop's bottom edge
      when using the default "below" placement.
@@ -308,7 +308,8 @@ layout, stop the existing Akimbo session before previewing.
       Start a session using saved settings plus any supplied overrides.
 
   akimbo-display restart [options]
-      Stop and restore the current session, then start a new one.
+      Stop and restore the current session, then start a new one. Start and
+      restart both print the Safari address and access code.
 
   akimbo-display stop
       Stop streaming and restore the desktop. Attempts repair if needed.

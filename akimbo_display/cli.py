@@ -578,7 +578,7 @@ def start(args):
         state = state_read()
         if state and state["phase"] == "running":
             print(f'{state["geometry"]["w"]}x{state["geometry"]["h"]} {cfg["position"]}; {state["encoder"]}; {state["network"]["transport"]}')
-            show_url(False)
+            show_url(True)
             return
         if not service_active():
             raise Error("Start failed. See: journalctl --user -u akimbo-display -n 40 --no-pager")

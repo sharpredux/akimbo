@@ -5,6 +5,7 @@ import io
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 from akimbo_display import cli
 from tests.test_cli import LAYOUT
@@ -97,6 +98,22 @@ class LifecycleTests(unittest.TestCase):
         self.assertEqual(result.exception.code, 130)
         self.assertIn('Completed installation/build files were preserved', output.getvalue())
         self.assertNotIn('Traceback', output.getvalue())
+
+    def test_start_prints_safari_url_and_access_code(self):
+        state = {
+            'phase': 'running',
+            'geometry': {'w': 1510, 'h': 992},
+            'encoder': 'software',
+            'network': {'address': '192.0.2.10', 'transport': 'wifi'},
+        }
+        output = io.StringIO()
+        with patch.object(cli, 'session'), patch.object(cli, 'backend'), \
+             patch.object(cli, 'service_active', side_effect=[False, True]), \
+             patch.object(cli, 'state_read', side_effect=[None, state, state]), \
+             patch.object(cli, 'run'), contextlib.redirect_stdout(output):
+            cli.start(SimpleNamespace())
+        self.assertIn('Safari: http://192.0.2.10:1701', output.getvalue())
+        self.assertIn('Access code: test-only-code', output.getvalue())
 
 
 if __name__ == '__main__': unittest.main()
