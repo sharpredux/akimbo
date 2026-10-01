@@ -61,8 +61,18 @@ After installation (see section 3), use the program as follows:
   3. Open the printed Safari address on the iPad and enter the printed access
      code.
   4. The viewer should select "Monitor: AKIMBO-IPAD" automatically.
-  5. Drag a window downward through the middle of the laptop's bottom edge
+  5. When the video appears, tap "Enter Fullscreen" to hide Safari's browser
+     controls. Safari requires this tap and will not enter fullscreen
+     automatically. Swipe down using Safari's fullscreen gesture to exit.
+  6. Drag a window downward through the middle of the laptop's bottom edge
      when using the default "below" placement.
+
+Current iPadOS releases use Safari's page fullscreen mode. On older compatible
+releases, Akimbo falls back to the native fullscreen video player. That legacy
+mode is intended for viewing; touch and Pencil input may not be forwarded.
+If Safari rejects the request, the fullscreen prompt stays visible so you can
+try again. An unsupported browser displays an explanation instead of the
+button.
 
 If Akimbo says it is already running, use the existing address or run:
 

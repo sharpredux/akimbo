@@ -525,19 +525,126 @@ Settings.prototype.send_server_config = function() {{
 }};
 window.addEventListener('load', () => {{
   const select = document.getElementById('window');
-  if (!select) return;
-  let applied = false;
-  const apply = () => {{
-    const item = Array.from(select.options).find(o => o.textContent === 'Monitor: AKIMBO-IPAD');
-    if (!item || applied) return;
-    applied = true;
-    select.value = item.value;
-    const fps = document.getElementById('frame_rate');
-    if (fps) {{ fps.value = frame_rate_scale_inv({cfg['fps']}); fps.dispatchEvent(new Event('input')); }}
-    select.dispatchEvent(new Event('change'));
+  if (select) {{
+    let applied = false;
+    const apply = () => {{
+      const item = Array.from(select.options).find(o => o.textContent === 'Monitor: AKIMBO-IPAD');
+      if (!item || applied) return;
+      applied = true;
+      select.value = item.value;
+      const fps = document.getElementById('frame_rate');
+      if (fps) {{ fps.value = frame_rate_scale_inv({cfg['fps']}); fps.dispatchEvent(new Event('input')); }}
+      select.dispatchEvent(new Event('change'));
+    }};
+    new MutationObserver(apply).observe(select, {{childList:true}});
+    apply();
+  }}
+
+  const video = document.getElementById('video');
+  const body = document.body;
+  if (!video || !body || !document.createElement) return;
+
+  // Safari requires fullscreen to start directly from a user gesture. Prefer
+  // document fullscreen on current iPadOS, but retain native video fullscreen
+  // for older iPads. View-only operation is intentional in the legacy mode.
+  const standardFullscreen = typeof body.requestFullscreen === 'function' &&
+    document.fullscreenEnabled !== false;
+  const legacyVideoFullscreen = typeof video.webkitEnterFullscreen === 'function';
+  const fullscreenSupported = standardFullscreen || legacyVideoFullscreen;
+  let videoReady = video.readyState >= 2;
+  let legacyFullscreenActive = false;
+
+  const prompt = document.createElement('div');
+  prompt.id = 'akimbo-fullscreen-prompt';
+  prompt.setAttribute('role', 'group');
+  Object.assign(prompt.style, {{
+    position: 'fixed', left: '50%', bottom: 'max(1rem, env(safe-area-inset-bottom))',
+    transform: 'translateX(-50%)', zIndex: '2147483647', display: 'flex',
+    flexDirection: 'column', alignItems: 'center', gap: '0.5rem',
+    maxWidth: 'calc(100% - 2rem)', padding: '0.65rem', borderRadius: '0.75rem',
+    color: '#fff', background: 'rgba(0, 0, 0, 0.78)', fontFamily: 'sans-serif',
+    textAlign: 'center'
+  }});
+
+  const button = document.createElement('button');
+  button.id = 'akimbo-enter-fullscreen';
+  button.type = 'button';
+  button.textContent = 'Enter Fullscreen';
+  Object.assign(button.style, {{
+    minHeight: '44px', padding: '0.65rem 1rem', border: '0', borderRadius: '0.55rem',
+    color: '#fff', background: '#0866ff', font: '600 1rem sans-serif'
+  }});
+
+  const status = document.createElement('span');
+  status.id = 'akimbo-fullscreen-status';
+  status.setAttribute('aria-live', 'polite');
+  status.hidden = true;
+  prompt.appendChild(button);
+  prompt.appendChild(status);
+  body.appendChild(prompt);
+
+  const settingsButton = document.getElementById('fullscreen');
+  const fullscreenActive = () => Boolean(document.fullscreenElement || legacyFullscreenActive ||
+    video.webkitDisplayingFullscreen);
+  const updateFullscreenUi = () => {{
+    const active = fullscreenActive();
+    if (!fullscreenSupported) {{
+      prompt.hidden = !videoReady;
+      button.hidden = true;
+      status.hidden = false;
+      status.textContent = 'Fullscreen is unavailable in this browser.';
+    }} else {{
+      prompt.hidden = !videoReady || active;
+      button.hidden = false;
+      button.textContent = 'Enter Fullscreen';
+      status.hidden = !status.textContent;
+    }}
+    if (settingsButton) {{
+      settingsButton.disabled = !fullscreenSupported;
+      settingsButton.textContent = active ? 'Exit Fullscreen' :
+        (fullscreenSupported ? 'Enter Fullscreen' : 'Fullscreen Unavailable');
+    }}
   }};
-  new MutationObserver(apply).observe(select, {{childList:true}});
-  apply();
+
+  const toggleFullscreen = async (event) => {{
+    if (event) {{ event.preventDefault(); event.stopPropagation(); }}
+    status.textContent = '';
+    status.hidden = true;
+    try {{
+      if (document.fullscreenElement && typeof document.exitFullscreen === 'function') {{
+        await document.exitFullscreen();
+      }} else if (standardFullscreen) {{
+        await body.requestFullscreen({{navigationUI: 'hide'}});
+      }} else if (legacyVideoFullscreen) {{
+        video.webkitEnterFullscreen();
+      }}
+      updateFullscreenUi();
+    }} catch (error) {{
+      prompt.hidden = false;
+      button.hidden = false;
+      button.textContent = 'Try Fullscreen Again';
+      status.hidden = false;
+      status.textContent = 'Safari blocked fullscreen. Tap the button to try again.';
+      console.warn('Cannot enter Akimbo fullscreen', error);
+    }}
+  }};
+
+  button.addEventListener('click', toggleFullscreen);
+  if (settingsButton && fullscreenSupported) settingsButton.onclick = toggleFullscreen;
+  document.addEventListener('fullscreenchange', updateFullscreenUi);
+  video.addEventListener('webkitbeginfullscreen', () => {{
+    legacyFullscreenActive = true;
+    updateFullscreenUi();
+  }});
+  video.addEventListener('webkitendfullscreen', () => {{
+    legacyFullscreenActive = false;
+    updateFullscreenUi();
+  }});
+  video.addEventListener('loadeddata', () => {{
+    videoReady = true;
+    updateFullscreenUi();
+  }});
+  updateFullscreenUi();
 }});\n'''
 
 
