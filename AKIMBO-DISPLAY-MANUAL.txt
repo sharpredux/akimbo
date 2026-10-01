@@ -61,18 +61,24 @@ After installation (see section 3), use the program as follows:
   3. Open the printed Safari address on the iPad and enter the printed access
      code.
   4. The viewer should select "Monitor: AKIMBO-IPAD" automatically.
-  5. When the video appears, tap "Enter Fullscreen" to hide Safari's browser
-     controls. Safari requires this tap and will not enter fullscreen
-     automatically. Swipe down using Safari's fullscreen gesture to exit.
+  5. When the video appears, open the Settings sidebar and tap "Enter
+     Fullscreen" in the Video section to hide Safari's browser controls. The
+     button disappears while fullscreen is active. Safari requires this tap
+     and will not enter fullscreen automatically. Swipe down using Safari's
+     fullscreen gesture to exit; the sidebar button returns afterward.
   6. Drag a window downward through the middle of the laptop's bottom edge
      when using the default "below" placement.
 
 Current iPadOS releases use Safari's page fullscreen mode. On older compatible
 releases, Akimbo falls back to the native fullscreen video player. That legacy
 mode is intended for viewing; touch and Pencil input may not be forwarded.
-If Safari rejects the request, the fullscreen prompt stays visible so you can
-try again. An unsupported browser displays an explanation instead of the
-button.
+If Safari rejects the request, the sidebar button changes to "Try Fullscreen
+Again" and displays an explanation beside it. An unsupported browser disables
+the sidebar button and explains that fullscreen is unavailable.
+
+The viewer enables Stretch Video so the streamed desktop reaches every edge
+of the available iPad viewport. This can introduce slight distortion when the
+stream and viewport aspect ratios differ.
 
 If Akimbo says it is already running, use the existing address or run:
 
@@ -202,8 +208,9 @@ settings. Akimbo does not add a separate "maximize on every drop" behavior.
 
 An empty iPad desktop can look black until you move a window onto it.
 The desktop wallpaper is not guaranteed to be drawn in the virtual area.
-Safari toolbars can reduce the visible area and leave borders. Adding the
-page to the iPad Home Screen may provide a larger viewing area.
+Safari toolbars can reduce the available viewing area before fullscreen is
+entered. Adding the page to the iPad Home Screen may also provide a larger
+viewing area.
 
 Akimbo temporarily pins panels whose output selection is automatic to the
 laptop's eDP display. This keeps the taskbar and launcher above the laptop's

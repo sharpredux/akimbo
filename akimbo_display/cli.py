@@ -508,7 +508,7 @@ def viewer_script(cfg):
     # Upstream's override hook keeps its player/input implementation intact.
     script = run([backend(), "--print-lib-js"]).stdout
     defaults = dict(frame_rate=str(cfg["fps"]), uinput_support=True, capture_cursor=True,
-                    enable_touch=True, enable_mouse=True, enable_stylus=True, stretch=False,
+                    enable_touch=True, enable_mouse=True, enable_stylus=True, stretch=True,
                     enable_video=True, energysaving=False, scale_video="1")
     prelude = f'''// Seed settings before upstream initializes its controls.
 try {{
@@ -553,84 +553,79 @@ window.addEventListener('load', () => {{
   const fullscreenSupported = standardFullscreen || legacyVideoFullscreen;
   let videoReady = video.readyState >= 2;
   let legacyFullscreenActive = false;
-
-  const prompt = document.createElement('div');
-  prompt.id = 'akimbo-fullscreen-prompt';
-  prompt.setAttribute('role', 'group');
-  Object.assign(prompt.style, {{
-    position: 'fixed', left: '50%', bottom: 'max(1rem, env(safe-area-inset-bottom))',
-    transform: 'translateX(-50%)', zIndex: '2147483647', display: 'flex',
-    flexDirection: 'column', alignItems: 'center', gap: '0.5rem',
-    maxWidth: 'calc(100% - 2rem)', padding: '0.65rem', borderRadius: '0.75rem',
-    color: '#fff', background: 'rgba(0, 0, 0, 0.78)', fontFamily: 'sans-serif',
-    textAlign: 'center'
-  }});
-
-  const button = document.createElement('button');
-  button.id = 'akimbo-enter-fullscreen';
-  button.type = 'button';
-  button.textContent = 'Enter Fullscreen';
-  Object.assign(button.style, {{
-    minHeight: '44px', padding: '0.65rem 1rem', border: '0', borderRadius: '0.55rem',
-    color: '#fff', background: '#0866ff', font: '600 1rem sans-serif'
-  }});
-
+  let fullscreenError = '';
+  let settingsButton = document.getElementById('fullscreen');
+  // Older Weylus removes its button on iPadOS. Restore it inside the Video
+  // section so Akimbo's native-video fallback remains available there.
+  if (!settingsButton) {{
+    const enableVideo = document.getElementById('enable_video');
+    const videoSection = enableVideo && typeof enableVideo.closest === 'function' ?
+      enableVideo.closest('section') : null;
+    if (videoSection) {{
+      settingsButton = document.createElement('button');
+      settingsButton.id = 'fullscreen';
+      settingsButton.type = 'button';
+      videoSection.appendChild(settingsButton);
+    }}
+  }}
+  if (!settingsButton) return;
   const status = document.createElement('span');
   status.id = 'akimbo-fullscreen-status';
   status.setAttribute('aria-live', 'polite');
+  status.style.marginTop = '0.5em';
   status.hidden = true;
-  prompt.appendChild(button);
-  prompt.appendChild(status);
-  body.appendChild(prompt);
+  settingsButton.parentElement.appendChild(status);
 
-  const settingsButton = document.getElementById('fullscreen');
   const fullscreenActive = () => Boolean(document.fullscreenElement || legacyFullscreenActive ||
     video.webkitDisplayingFullscreen);
   const updateFullscreenUi = () => {{
     const active = fullscreenActive();
+    settingsButton.hidden = active;
+    // Inline display values cannot be defeated by Weylus's section-button CSS
+    // and make the fullscreen state reliable on Safari.
+    settingsButton.style.display = active ? 'none' : 'block';
+    if (active) {{
+      status.hidden = true;
+      status.style.display = 'none';
+      status.textContent = '';
+      return;
+    }}
     if (!fullscreenSupported) {{
-      prompt.hidden = !videoReady;
-      button.hidden = true;
-      status.hidden = false;
-      status.textContent = 'Fullscreen is unavailable in this browser.';
+      settingsButton.disabled = true;
+      settingsButton.textContent = 'Fullscreen Unavailable';
+      fullscreenError = 'Fullscreen is unavailable in this browser.';
+    }} else if (!videoReady) {{
+      settingsButton.disabled = true;
+      settingsButton.textContent = 'Waiting for Video';
     }} else {{
-      prompt.hidden = !videoReady || active;
-      button.hidden = false;
-      button.textContent = 'Enter Fullscreen';
-      status.hidden = !status.textContent;
+      settingsButton.disabled = false;
+      settingsButton.textContent = fullscreenError ? 'Try Fullscreen Again' : 'Enter Fullscreen';
     }}
-    if (settingsButton) {{
-      settingsButton.disabled = !fullscreenSupported;
-      settingsButton.textContent = active ? 'Exit Fullscreen' :
-        (fullscreenSupported ? 'Enter Fullscreen' : 'Fullscreen Unavailable');
-    }}
+    status.hidden = !fullscreenError;
+    status.style.display = fullscreenError ? 'block' : 'none';
+    status.textContent = fullscreenError;
   }};
 
-  const toggleFullscreen = async (event) => {{
+  const enterFullscreen = async (event) => {{
     if (event) {{ event.preventDefault(); event.stopPropagation(); }}
-    status.textContent = '';
-    status.hidden = true;
+    if (!fullscreenSupported || !videoReady || fullscreenActive()) return;
+    fullscreenError = '';
+    updateFullscreenUi();
     try {{
-      if (document.fullscreenElement && typeof document.exitFullscreen === 'function') {{
-        await document.exitFullscreen();
-      }} else if (standardFullscreen) {{
+      if (standardFullscreen) {{
         await body.requestFullscreen({{navigationUI: 'hide'}});
       }} else if (legacyVideoFullscreen) {{
         video.webkitEnterFullscreen();
       }}
       updateFullscreenUi();
     }} catch (error) {{
-      prompt.hidden = false;
-      button.hidden = false;
-      button.textContent = 'Try Fullscreen Again';
-      status.hidden = false;
-      status.textContent = 'Safari blocked fullscreen. Tap the button to try again.';
+      fullscreenError = 'Safari blocked fullscreen. Tap the button to try again.';
+      updateFullscreenUi();
       console.warn('Cannot enter Akimbo fullscreen', error);
     }}
   }};
 
-  button.addEventListener('click', toggleFullscreen);
-  if (settingsButton && fullscreenSupported) settingsButton.onclick = toggleFullscreen;
+  settingsButton.onclick = enterFullscreen;
   document.addEventListener('fullscreenchange', updateFullscreenUi);
   video.addEventListener('webkitbeginfullscreen', () => {{
     legacyFullscreenActive = true;
@@ -638,6 +633,7 @@ window.addEventListener('load', () => {{
   }});
   video.addEventListener('webkitendfullscreen', () => {{
     legacyFullscreenActive = false;
+    fullscreenError = '';
     updateFullscreenUi();
   }});
   video.addEventListener('loadeddata', () => {{
